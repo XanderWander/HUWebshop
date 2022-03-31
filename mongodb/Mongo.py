@@ -21,9 +21,13 @@ class Collection:
     def __init__(self, mongo, name):
         self.collection = mongo[name]
 
-    def for_each(self, f):
+    def for_each(self, f, limit=-1):
+        c = 0
         for var in self.collection.find():
             f(Entry(var))
+            c += 1
+            if c == limit:
+                return
 
 
 class Mongo:
