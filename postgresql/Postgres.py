@@ -15,6 +15,7 @@ class Postgres:
         self.find = "SELECT * FROM %s WHERE %s = '%s'"
         self.conn = None
         self.cur = None
+        self.commit_counter = 0
         self.connect()
 
     def __del__(self):
@@ -34,7 +35,10 @@ class Postgres:
         values = list(kwargs.values())
         q = self.query % (table, ', '.join(names), ', '.join(["%s"] * len(names)))
         self.cur.execute(q, values)
-        self.commit()
+        self.commit_counter += 1
+        if self.commit_counter > 1000:
+            self.commit_counter = 0
+            self.commit()
 
     def index(self, table, name, value):
         self.cur.execute(self.find % (table, name, value.replace("'", "''")))
