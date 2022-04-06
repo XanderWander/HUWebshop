@@ -114,11 +114,12 @@ def session(entry: Entry):
     ordered = entry.var("order.products")
     if ordered is not None:
         for order in ordered:
-            if type(order) is not dict and type(order) is not list:
-                idx = pg.index("products", "id", order['id'])
+            oid = order.get('id')
+            if id is not None:
+                idx = pg.index("products", "id", oid)
                 if idx != -1:
                     pg.insert("ordered_products",
-                              product_id=order['id'],
+                              product_id=oid,
                               session_id=sid
                               )
 
