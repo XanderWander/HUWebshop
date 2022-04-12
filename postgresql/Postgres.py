@@ -46,6 +46,10 @@ class Postgres:
             return row[0]
         return -1
 
+    def execute(self, query):
+        self.cur.execute(query)
+        self.commit()
+
     def commit(self):
         self.conn.commit()
 
