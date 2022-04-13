@@ -1,8 +1,9 @@
 from mongodb import Mongo, Entry
 from postgresql import Postgres
+from typing import Optional
 
-db = Mongo()
-pg = Postgres()
+db: Optional[Mongo] = None
+pg: Optional[Postgres] = None
 
 indices = {}
 
@@ -159,15 +160,19 @@ def visitor(entry: Entry):
                           )
 
 
-print("Reading products...")
-db.get_collection("products").for_each(product)
+def read_products():
+    db.get_collection("products").for_each(product)
 
-print("Reading sessions...")
-db.get_collection("sessions").for_each(session)
 
-print("Reading visitors...")
-db.get_collection("visitors").for_each(visitor)
+def read_sessions():
+    db.get_collection("sessions").for_each(session)
 
-db.close()
-pg.commit()
-pg.close()
+
+def read_visitors():
+    db.get_collection("visitors").for_each(visitor)
+
+
+def inject(mongo, postgres):
+    global db, pg
+    db = mongo
+    pg = postgres
