@@ -4,11 +4,17 @@ from typing import Optional
 
 db: Optional[Mongo] = None
 pg: Optional[Postgres] = None
-
 indices = {}
 
 
 def table_index(name, value):
+    """
+    Get the row index of a value in Postgresql
+    :param name: The column name
+    :param value: The column value to search
+    :return: The row index or -1 if not found
+    """
+
     if type(value) is list:
         value = value[0]
     if value is None:
@@ -24,6 +30,12 @@ def table_index(name, value):
 
 
 def safe_integer(val):
+    """
+    Used for converting MongoDB data to an integer and auto-converts floats to integers
+    :param val: The MongoDB integer or float value as string
+    :return: The python safe integer value
+    """
+
     try:
         val = str(val)
         if "." in val:
@@ -38,7 +50,6 @@ def product(entry: Entry):
     """
     Add a new product entry to the database
     :param entry: The entry to add
-    :return: Nothing
     """
 
     brand_id = table_index("brands", entry.var("brand"))
@@ -47,7 +58,9 @@ def product(entry: Entry):
     sub_category_id = table_index("sub_categories", entry.var("sub_category"))
     sub_sub_category_id = table_index("sub_sub_categories", entry.var("sub_sub_category"))
 
-    # Main products table
+    """
+    Insert a new row in the main products table
+    """
     pg.insert("products",
               id=entry.var("_id"),
               fast_mover=entry.var("fast_mover"),
@@ -64,7 +77,9 @@ def product(entry: Entry):
               sub_sub_category_id=sub_sub_category_id
               )
 
-    # Properties table
+    """
+    Insert all not-none properties of this product to the properties table
+    """
     properties = entry.var("properties")
     if properties is not None:
         for name, value in properties.items():
@@ -76,29 +91,50 @@ def product(entry: Entry):
                       product_id=entry.var("_id"))
 
 
-def build_preference(name, name_s, sid, entry: Entry):
-    preferences = entry.var(f"preferences.{name}")
+def build_brand_preference(sid, entry: Entry):
+    """
+    Add a new brand preference of a session
+    :param sid: The session id
+    :param entry: The row data
+    """
+
+    preferences = entry.var(f"preferences.brand")
     if preferences is not None:
         for preference in preferences:
-            idx = pg.index(f"{name_s}", "name", preference)
+            idx = pg.index(f"brands", "name", preference)
             if idx != -1:
-                if name == "brand":
-                    pg.insert(f"{name}_preference",
-                              brand_id=idx,
-                              session_id=sid,
-                              views=entry.var(f"preferences.{name}.{preference}.views"),
-                              orders=entry.var(f"preferences.{name}.{preference}.orders"))
-                else:
-                    pg.insert(f"{name}_preference",
-                              category_id=idx,
-                              session_id=sid,
-                              views=entry.var(f"preferences.{name}.{preference}.views"),
-                              orders=entry.var(f"preferences.{name}.{preference}.orders"))
+                pg.insert(f"brand_preference",
+                          brand_id=idx,
+                          session_id=sid,
+                          views=entry.var(f"preferences.brand.{preference}.views"),
+                          orders=entry.var(f"preferences.brand.{preference}.orders"))
+
+
+def build_category_preference(sid, entry: Entry):
+    """
+    Add a new category preference of a session
+    :param sid: The session id
+    :param entry: The row data
+    """
+
+    preferences = entry.var(f"preferences.category")
+    if preferences is not None:
+        for preference in preferences:
+            idx = pg.index(f"categories", "name", preference)
+            if idx != -1:
+                pg.insert(f"category_preference",
+                          category_id=idx,
+                          session_id=sid,
+                          views=entry.var(f"preferences.category.{preference}.views"),
+                          orders=entry.var(f"preferences.category.{preference}.orders"))
 
 
 def session(entry: Entry):
+    """
+    Add a new session entry to the database
+    :param entry: The entry to add
+    """
 
-    # Sessions
     buids = entry.var("buid")
     buid = None
     if buids is not None:
@@ -111,7 +147,10 @@ def session(entry: Entry):
               os=entry.var("user_agent.os.familiy"),
               has_sale=entry.var("has_sale"))
 
-    # Ordered products
+
+    """
+    Add all ordered products of this session to a separate table
+    """
     ordered = entry.var("order.products")
     if ordered is not None:
         for order in ordered:
@@ -124,12 +163,18 @@ def session(entry: Entry):
                               session_id=sid
                               )
 
-    # Preferences
-    build_preference("brand", "brands", sid, entry)
-    build_preference("category", "categories", sid, entry)
+    """
+    Add all preferences of this session to a separate table
+    """
+    build_brand_preference(sid, entry)
+    build_category_preference(sid, entry)
 
 
 def visitor(entry: Entry):
+    """
+    Add a new visitor (profile) entry to the database
+    :param entry: The entry to add
+    """
 
     pid = str(entry.var("_id"))
     pg.insert("profiles",
@@ -137,7 +182,9 @@ def visitor(entry: Entry):
               segment=entry.var("recommendations.segment"),
               has_email=entry.var("meta.has_email"))
 
-    # Viewed products
+    """
+    Add all viewed before products of this profile to a separate table
+    """
     viewed = entry.var("recommendations.viewed_before")
     if viewed is not None:
         for prod in viewed:
@@ -149,7 +196,9 @@ def visitor(entry: Entry):
                               profile_id=pid
                               )
 
-    # Sessions
+    """
+    Add all buids of this profile to a separate table for session and profile linking
+    """
     buids = entry.var("buids")
     if buids is not None:
         for buid in buids:
@@ -161,18 +210,36 @@ def visitor(entry: Entry):
 
 
 def read_products():
+    """
+    Read all products from MongoDB and call the product function for each row
+    """
+
     db.get_collection("products").for_each(product)
 
 
 def read_sessions():
+    """
+    Read all sessions from MongoDB and call the session function for each row
+    """
+
     db.get_collection("sessions").for_each(session)
 
 
 def read_visitors():
+    """
+    Read all visitors from MongoDB and call the visitor function for each row
+    """
+
     db.get_collection("visitors").for_each(visitor)
 
 
 def inject(mongo, postgres):
+    """
+    Inject the database handles from an external program to be used
+    :param mongo: The external MongoDB handle
+    :param postgres: The external Postgresql handle
+    """
+
     global db, pg
     db = mongo
     pg = postgres

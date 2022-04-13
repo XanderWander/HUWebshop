@@ -5,6 +5,10 @@ import time
 
 
 class Databases:
+    """
+    Used for safe access to the database system with auto-close functionality.
+    """
+
     def __init__(self):
         self.db: Mongo
         self.pg: Postgres
@@ -21,10 +25,19 @@ class Databases:
 
 
 def current_millis():
+    """
+    Get the current milliseconds since epoch, used for timing
+    :return: time since epoch in ms
+    """
+
     return round(time.time() * 1000)
 
 
 def drop_database():
+    """
+    Drop the HUWebshop Postgresql database
+    """
+
     pg = Postgres()
     with open("resources/database.sql") as f:
         query = ''.join(f.readlines())
@@ -33,6 +46,10 @@ def drop_database():
 
 
 def build_database():
+    """
+    Build the Postgresql database from MongoDB
+    """
+
     with Databases() as (db, pg):
         inject(db, pg)
         read_products()
@@ -41,24 +58,40 @@ def build_database():
 
 
 def build_products():
+    """
+    Populate the products data in Postgresql
+    """
+
     with Databases() as (db, pg):
         inject(db, pg)
         read_products()
 
 
 def build_sessions():
+    """
+    Populate the sessions data in Postgresql
+    """
+
     with Databases() as (db, pg):
         inject(db, pg)
         read_sessions()
 
 
 def build_visitors():
+    """
+    Populate the visitors data in Postgresql
+    """
+
     with Databases() as (db, pg):
         inject(db, pg)
         read_visitors()
 
 
 def build_combined():
+    """
+    Build the others_combined table from available Postgresql data
+    """
+
     with Databases() as (db, pg):
         with open("resources/others_combined.sql") as f:
             query = ''.join(f.readlines())
@@ -66,6 +99,10 @@ def build_combined():
 
 
 def order_count():
+    """
+    Build the order_count table from available Postgresql data
+    """
+
     with Databases() as (db, pg):
         with open("resources/order_count.sql") as f:
             query = ''.join(f.readlines())
@@ -73,6 +110,10 @@ def order_count():
 
 
 def main():
+    """
+    Main program loop, after choosing an option or throwing an error function calls itself
+    """
+
     print("HUWebshop control interface")
     print("")
     print("0: Drop database (pg)")  # ~10s
